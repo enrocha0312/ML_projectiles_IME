@@ -291,6 +291,7 @@ evaluate_split(X_train_super, y_train_super, X_test_super, y_test_super, "Synthe
 evaluate_split(X_train_real, y_train_real, X_test_real, y_test_real, "Real only")
 
 
+#-----Refinamento 4: compare metrics------#
 # Synthetic only
 print("\n[Refinement 4] Synthetic only - Class-wise metrics:")
 print(classification_report(y_test_syn, knn_model.predict(X_test_syn)))
