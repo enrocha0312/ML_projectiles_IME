@@ -522,6 +522,3 @@ plot_decision_boundary(X_train_pca, y_train, svm_real_pca, 'SVM (Treino - Reais 
 # Gráfico com dados de teste projetados
 plot_decision_boundary(X_test_pca, y_test, svm_real_pca, 'SVM (Teste - Reais com PCA)')
 
-
-
-
