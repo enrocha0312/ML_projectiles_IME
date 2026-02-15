@@ -14,9 +14,11 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.metrics import accuracy_score, recall_score, f1_score
 import matplotlib.pyplot as plt 
 from sklearn.tree import plot_tree
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report, ConfusionMatrixDisplay
 from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, cross_val_score
 from imblearn.over_sampling import SMOTE
+import time 
+from memory_profiler import memory_usage
 
 df_real_data = pd.read_csv('D:/Codigos_VSCODE/IME/projectiles_articles/Dataset/RAMP-RT real v1.csv')
 df_synthetic_data = pd.read_csv('D:/Codigos_VSCODE/IME/projectiles_articles/Dataset/RAMP-RT synthetic v1.csv')
@@ -37,7 +39,12 @@ scaler = StandardScaler()
 X_synthetic_scaled = scaler.fit_transform(X_synthetic)
 X_real_scaled = scaler.transform(X_real)
 
+class_synthetic_count = df_synthetic_data['class'].value_counts()
+class_real_count = df_real_data['class'].value_counts()
 
+#count per class
+print(class_synthetic_count)
+print(class_real_count)
 
 ### First try: random values by using randomized search
 
@@ -66,7 +73,15 @@ search = RandomizedSearchCV(
     n_jobs=-1
 )
 
-search.fit(X_synthetic_scaled, y_synthetic)
+def train_model(): 
+    search.fit(X_synthetic_scaled, y_synthetic)
+
+start = time.time()
+mem_usage = memory_usage(train_model) 
+end = time.time() 
+print("Tempo de treino (s):", end - start) 
+print("Uso de memória (MB):", max(mem_usage) - min(mem_usage))
+
 
 print("Melhores parâmetros:", search.best_params_)
 print("Melhor score (CV nos sintéticos):", search.best_score_)
@@ -75,7 +90,11 @@ print("Melhor score (CV nos sintéticos):", search.best_score_)
 best_rf = search.best_estimator_
 
 # --- Teste nos próprios sintéticos (diagnóstico) ---
+start = time.time()
 y_synthetic_pred = best_rf.predict(X_synthetic_scaled)
+end = time.time() 
+
+print("Tempo de predição (s):", end - start)
 
 print("\nResultados no treino sintético (diagnóstico):")
 print("Accuracy:", accuracy_score(y_synthetic, y_synthetic_pred))
@@ -95,6 +114,27 @@ print("F1-score:", f1_score(y_real, y_real_pred, average='weighted'))
 print("Confusion Matrix:\n", confusion_matrix(y_real, y_real_pred))
 print("\nRelatório de classificação:\n", classification_report(y_real, y_real_pred))
 
+
+
+labels = ["MH", "MM", "UN"]
+
+cm = confusion_matrix(y_real, y_real_pred, labels=labels)
+
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
+disp.plot(cmap=plt.cm.Blues)
+plt.title("Matriz de Confusão - Random Forest (Reais)")
+plt.show()
+
+
+labels_2 = ["GL", "GH","MH", "MM", "UN"]
+
+
+cm = confusion_matrix(y_real, y_real_pred)
+
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels_2)
+disp.plot(cmap=plt.cm.Blues)
+plt.title("Matriz de Confusão - Random Forest (Reais)")
+plt.show()
 
 
 ### ------ REFINEMENT 1: Oversampling com SMOTE nos sintéticos ------- ###
@@ -138,7 +178,14 @@ search = RandomizedSearchCV(
     n_jobs=-1
 )
 
-search.fit(X_syn_res_scaled, y_syn_res)
+def train_model_2():
+    search.fit(X_syn_res_scaled, y_syn_res)
+
+start = time.time()
+mem_usage = memory_usage(train_model_2) 
+end = time.time() 
+print("Tempo de treino (s):", end - start) 
+print("Uso de memória (MB):", max(mem_usage) - min(mem_usage))
 
 print("Melhores parâmetros:", search.best_params_)
 print("Melhor score (CV nos sintéticos balanceados):", search.best_score_)
@@ -157,6 +204,16 @@ print("F1-score:", f1_score(y_real, y_real_pred, average='weighted'))
 print("Confusion Matrix:\n", confusion_matrix(y_real, y_real_pred))
 print("\nRelatório de classificação:\n", classification_report(y_real, y_real_pred))
 
+
+labels_3 = ["GH","MH", "MM", "UN"]
+
+
+cm = confusion_matrix(y_real, y_real_pred)
+
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels_3)
+disp.plot(cmap=plt.cm.Blues)
+plt.title("Matriz de Confusão para SMOTE - Random Forest (Reais)")
+plt.show()
 
 
 ### ------ TESTE COM SPLIT 70/30 ------- ###
@@ -200,9 +257,12 @@ def run_pipeline(X, y, label):
     
     # Modelo final
     best_rf = search.best_estimator_
-    
+
     # Avaliar no teste
+    start = time.time()
     y_pred = best_rf.predict(X_test_scaled)
+    end = time.time() 
+    print("Tempo de predição (s):", end - start)
     
     print(f"\nResultados no teste ({label}):")
     print("Accuracy:", accuracy_score(y_test, y_pred))
@@ -211,15 +271,40 @@ def run_pipeline(X, y, label):
     print("F1-score:", f1_score(y_test, y_pred, average='weighted'))
     print("Confusion Matrix:\n", confusion_matrix(y_test, y_pred))
     print("\nRelatório de classificação:\n", classification_report(y_test, y_pred))
+    
+def train_model_3():
+    # 1. Sintético
+    run_pipeline(X_synthetic, y_synthetic, "Sintético")
 
-# 1. Sintético
-run_pipeline(X_synthetic, y_synthetic, "Sintético")
-
-# 2. Sintético + Real
 X_concat = pd.concat([X_synthetic, X_real])
 y_concat = pd.concat([y_synthetic, y_real])
-run_pipeline(X_concat, y_concat, "Sintético + Real")
 
-# 3. Real
-run_pipeline(X_real, y_real, "Real")
+def train_model_4():
+    # 2. Sintético + Real
+    run_pipeline(X_concat, y_concat, "Sintético + Real")
 
+def train_model_5():    
+    # 3. Real
+    run_pipeline(X_real, y_real, "Real")
+
+
+print("Desempenho Sintético")
+start = time.time()
+mem_usage = memory_usage(train_model_3) 
+end = time.time() 
+print("Tempo de treino (s):", end - start) 
+print("Uso de memória (MB):", max(mem_usage) - min(mem_usage))
+
+print("Desempenho Sintético + Real")
+start = time.time()
+mem_usage = memory_usage(train_model_4) 
+end = time.time() 
+print("Tempo de treino (s):", end - start) 
+print("Uso de memória (MB):", max(mem_usage) - min(mem_usage))
+
+print("Desempenho Real")
+start = time.time()
+mem_usage = memory_usage(train_model_5) 
+end = time.time() 
+print("Tempo de treino (s):", end - start) 
+print("Uso de memória (MB):", max(mem_usage) - min(mem_usage))
